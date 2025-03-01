@@ -195,4 +195,10 @@ text_viewer_application_init (TextViewerApplication *self)
                                            "<Ctrl><Shift>s",
                                            NULL,
                                          });
+  gtk_application_set_accels_for_action (GTK_APPLICATION (self),
+                                         "win.just-save",
+                                         (const char *[]) {
+                                           "<Ctrl>s",
+                                           NULL,
+                                         });
 }

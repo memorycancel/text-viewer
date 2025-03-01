@@ -22,6 +22,8 @@
 
 #include "text-viewer-window.h"
 
+g_autoptr (GFile) opened_file = NULL;
+
 struct _TextViewerWindow
 {
 	AdwApplicationWindow  parent_instance;
@@ -180,12 +182,19 @@ on_open_response (GObject      *source,
   GtkFileDialog *dialog = GTK_FILE_DIALOG (source);
   TextViewerWindow *self = user_data;
 
-  g_autoptr (GFile) file =
+  opened_file =
     gtk_file_dialog_open_finish (dialog, result, NULL);
 
+  // Ubuntu 桌面文件的副本之所以会出现在 /run/user/1000/doc 目录中，
+  // 是因为 Flatpak 应用程序访问系统文件的方式；它们基本上是为系统创建了一个临时的、
+  // 隔离的 "沙盒 "视图，包括在这个位置上的桌面文件副本，
+  // 允许它们访问和修改这些文件，而不直接与实际文件系统交互。
+  // g_autofree char *path = g_file_get_path(file); // Get the real path
+  // g_print("Real path: %s\n", path); // Print the real path
+
   // If the user selected a file, open it
-  if (file != NULL)
-    open_file (self, file);
+  if (opened_file != NULL)
+    open_file (self, opened_file);
 }
 
 static void
@@ -312,11 +321,10 @@ on_save_response (GObject      *source,
   GtkFileDialog *dialog = GTK_FILE_DIALOG (source);
   TextViewerWindow *self = user_data;
 
-  g_autoptr (GFile) file =
-    gtk_file_dialog_save_finish (dialog, result, NULL);
+  opened_file = gtk_file_dialog_save_finish (dialog, result, NULL);
 
-  if (file != NULL)
-    save_file (self, file);
+  if (opened_file != NULL)
+    save_file (self, opened_file);
 }
 
 static void
@@ -332,6 +340,46 @@ text_viewer_window__save_file_dialog (GAction          *action G_GNUC_UNUSED,
                         NULL,
                         on_save_response,
                         self);
+}
+
+static void
+just_save_the_opened_file (GAction          *action,
+                           GVariant         *param,
+                           TextViewerWindow *self)
+{
+  if (opened_file == NULL) {
+    g_printerr ("No file is currently opened to save.\n");
+    return;
+  }
+
+  GtkTextBuffer *buffer = gtk_text_view_get_buffer (self->main_text_view);
+
+  // Retrieve the iterator at the start of the buffer
+  GtkTextIter start;
+  gtk_text_buffer_get_start_iter (buffer, &start);
+
+  // Retrieve the iterator at the end of the buffer
+  GtkTextIter end;
+  gtk_text_buffer_get_end_iter (buffer, &end);
+
+  // Retrieve all the visible text between the two bounds
+  char *text = gtk_text_buffer_get_text (buffer, &start, &end, FALSE);
+
+  // If there is nothing to save, return early
+  if (text == NULL)
+    return;
+
+  g_autoptr(GBytes) bytes = g_bytes_new_take (text, strlen (text));
+
+  // Start the asynchronous operation to save the data into the file
+  g_file_replace_contents_bytes_async (opened_file,
+                                       bytes,
+                                       NULL,
+                                       FALSE,
+                                       G_FILE_CREATE_NONE,
+                                       NULL,
+                                       save_file_complete,
+                                       self);
 }
 
 static void
@@ -351,6 +399,10 @@ text_viewer_window_init (TextViewerWindow *self)
   g_autoptr (GSimpleAction) save_action = g_simple_action_new ("save-as", NULL);
   g_signal_connect (save_action, "activate", G_CALLBACK (text_viewer_window__save_file_dialog), self);
   g_action_map_add_action (G_ACTION_MAP (self), G_ACTION (save_action));
+
+  g_autoptr (GSimpleAction) just_save_action = g_simple_action_new ("just-save", NULL);
+  g_signal_connect (just_save_action, "activate", G_CALLBACK (just_save_the_opened_file), self);
+  g_action_map_add_action (G_ACTION_MAP (self), G_ACTION (just_save_action));
 
   GtkTextBuffer *buffer = gtk_text_view_get_buffer (self->main_text_view);
   g_signal_connect (buffer,

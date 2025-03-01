@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=com.TommyTech.TextViewer
+Exec=@bindir@/text-viewer --gapplication-service

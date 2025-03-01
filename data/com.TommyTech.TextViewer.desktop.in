@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=text-viewer
+Exec=text-viewer
+Icon=com.TommyTech.TextViewer
+Terminal=false
+Type=Application
+Categories=Utility;
+Keywords=GTK;
+StartupNotify=true
+DBusActivatable=true

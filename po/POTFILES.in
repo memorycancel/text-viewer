@@ -1,0 +1,8 @@
+# List of source files containing translatable strings.
+# Please keep this file sorted alphabetically.
+data/com.TommyTech.TextViewer.desktop.in
+data/com.TommyTech.TextViewer.metainfo.xml.in
+data/com.TommyTech.TextViewer.gschema.xml
+src/main.c
+src/text-viewer-window.c
+src/text-viewer-window.ui

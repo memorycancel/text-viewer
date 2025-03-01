@@ -33,6 +33,7 @@ struct _TextViewerWindow
   GtkTextView *main_text_view;
   GtkButton *open_button;
   GtkLabel *cursor_pos;
+  AdwToastOverlay *toast_overlay;
 };
 
 G_DEFINE_FINAL_TYPE (TextViewerWindow, text_viewer_window, ADW_TYPE_APPLICATION_WINDOW)
@@ -59,7 +60,7 @@ text_viewer_window_class_init (TextViewerWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, TextViewerWindow, main_text_view);
   gtk_widget_class_bind_template_child (widget_class, TextViewerWindow, open_button);
   gtk_widget_class_bind_template_child (widget_class, TextViewerWindow, cursor_pos);
-
+  gtk_widget_class_bind_template_child (widget_class, TextViewerWindow, toast_overlay);
 }
 
 static void
@@ -101,6 +102,26 @@ open_file_complete (GObject          *source_object,
       display_name = g_file_get_basename (file);
     }
 
+    // In case of error, show a toast
+  if (error != NULL)
+    {
+      g_autofree char *msg =
+        g_strdup_printf ("Unable to open “%s”", display_name);
+
+      adw_toast_overlay_add_toast (self->toast_overlay, adw_toast_new (msg));
+      return;
+    }
+
+  // Ensure that the file is encoded with UTF-8
+  if (!g_utf8_validate (contents, length, NULL))
+    {
+      g_autofree char *msg =
+        g_strdup_printf ("Invalid text encoding for “%s”", display_name);
+
+      adw_toast_overlay_add_toast (self->toast_overlay, adw_toast_new (msg));
+      return;
+    }
+
   // In case of error, print a warning to the standard error output
   if (error != NULL)
     {
@@ -133,6 +154,12 @@ open_file_complete (GObject          *source_object,
 
   // Set the title using the display name
   gtk_window_set_title (GTK_WINDOW (self), display_name);
+
+  // Show a toast for the successful loading
+  g_autofree char *msg =
+    g_strdup_printf ("Opened “%s”", display_name);
+
+  adw_toast_overlay_add_toast (self->toast_overlay, adw_toast_new (msg));
 }
 
 static void
@@ -204,6 +231,7 @@ save_file_complete (GObject      *source_object,
                     gpointer      user_data)
 {
   GFile *file = G_FILE (source_object);
+  TextViewerWindow *self = user_data;
 
   g_autoptr (GError) error =  NULL;
   g_file_replace_contents_finish (file, result, NULL, &error);
@@ -232,6 +260,14 @@ save_file_complete (GObject      *source_object,
                   display_name,
                   error->message);
     }
+
+  g_autofree char *msg = NULL;
+  if (error != NULL)
+    msg = g_strdup_printf ("Unable to save as “%s”", display_name);
+  else
+    msg = g_strdup_printf ("Saved as “%s”", display_name);
+
+  adw_toast_overlay_add_toast (self->toast_overlay, adw_toast_new (msg));
 }
 
 static void

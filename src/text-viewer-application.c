@@ -119,4 +119,11 @@ text_viewer_application_init (TextViewerApplication *self)
 	gtk_application_set_accels_for_action (GTK_APPLICATION (self),
 	                                       "app.quit",
 	                                       (const char *[]) { "<primary>q", NULL });
+
+  gtk_application_set_accels_for_action (GTK_APPLICATION (self),
+                                         "win.open",
+                                         (const char *[]) {
+                                           "<Ctrl>o",
+                                           NULL,
+                                         });
 }

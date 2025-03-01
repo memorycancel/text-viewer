@@ -1,4 +1,4 @@
-# text-viewer
+# text-viewer 文本编辑器
 
 GNOME 桌面环境下的最简单的文本编辑器。
 
